@@ -12,6 +12,8 @@
     button { padding: 0.7em 1.5em; border: none; border-radius: 8px; background: #2563eb; color: #fff; font-weight: 600; cursor: pointer; transition: background 0.2s; }
     button:hover { background: #1e40af; }
     .status { margin-top: 1em; font-size: 1em; }
+    .saved-signature { margin-top: 1.5em; text-align: center; }
+    .saved-signature img { max-width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
   </style>
 </head>
 <body>
@@ -21,10 +23,11 @@
       <canvas id="signature-pad"></canvas>
     </div>
     <div class="btn-row">
-      <button id="clear-btn">Clear</button>
-      <button id="save-btn">Save Signature</button>
+  <button id="clear-btn">Clear</button>
+  <button id="save-btn">Save Signature</button>
     </div>
     <div class="status" id="status"></div>
+    <div class="saved-signature" id="saved-signature"></div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
   <script>
@@ -44,6 +47,18 @@
 
     document.getElementById('clear-btn').onclick = () => signaturePad.clear();
 
+    // Load saved signature from localStorage
+    function loadSavedSignature() {
+      const saved = localStorage.getItem('signature');
+      const container = document.getElementById('saved-signature');
+      if (saved) {
+        container.innerHTML = `<div>Saved Signature:</div><img src="${saved}" alt="Saved Signature" />`;
+      } else {
+        container.innerHTML = '';
+      }
+    }
+    loadSavedSignature();
+
     document.getElementById('save-btn').onclick = async () => {
       if (signaturePad.isEmpty()) {
         document.getElementById('status').textContent = "❌ Please provide a signature.";
@@ -51,22 +66,19 @@
       }
       document.getElementById('status').textContent = "⏳ Saving...";
       const dataURL = signaturePad.toDataURL("image/png");
-      // Send to n8n webhook (replace with your actual URL)
-      try {
-        const res = await fetch('https://n8n.srv898271.hstgr.cloud/webhook/80082779-090b-4999-a223-4aa1911c24ee', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ signature: dataURL })
-        });
-        const result = await res.json();
-        if (result.success) {
-          document.getElementById('status').textContent = "✅ Signature saved!";
-        } else {
-          document.getElementById('status').textContent = "❌ Error saving signature.";
-        }
-      } catch (e) {
-        document.getElementById('status').textContent = "❌ Network error.";
-      }
+
+      // Save to localStorage
+      localStorage.setItem('signature', dataURL);
+      loadSavedSignature();
+      document.getElementById('status').textContent = "✅ Signature saved and downloaded!";
+
+      // Also trigger download
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = 'signature.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     };
   </script>
 </body>
