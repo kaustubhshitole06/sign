@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Signature Pad</title>
+  <style>
+    body { font-family: Inter, Arial, sans-serif; background: #f6f8fa; margin: 0; }
+    .card { max-width: 400px; margin: 40px auto; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(60,72,88,0.08); padding: 2em; }
+    .sig-container { border: 2px solid #2563eb; border-radius: 12px; background: #f3f4f6; }
+    canvas { width: 100%; height: 200px; display: block; border-radius: 12px; }
+    .btn-row { display: flex; gap: 1em; margin-top: 1em; }
+    button { padding: 0.7em 1.5em; border: none; border-radius: 8px; background: #2563eb; color: #fff; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    button:hover { background: #1e40af; }
+    .status { margin-top: 1em; font-size: 1em; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Sign Below</h2>
+    <div class="sig-container">
+      <canvas id="signature-pad"></canvas>
+    </div>
+    <div class="btn-row">
+      <button id="clear-btn">Clear</button>
+      <button id="save-btn">Save Signature</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+  <script>
+    const canvas = document.getElementById('signature-pad');
+    const signaturePad = new SignaturePad(canvas, { backgroundColor: '#f3f4f6' });
+
+    // Resize canvas to fit container
+    function resizeCanvas() {
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      canvas.width = canvas.offsetWidth * ratio;
+      canvas.height = 200 * ratio;
+      canvas.getContext("2d").scale(ratio, ratio);
+      signaturePad.clear();
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    document.getElementById('clear-btn').onclick = () => signaturePad.clear();
+
+    document.getElementById('save-btn').onclick = async () => {
+      if (signaturePad.isEmpty()) {
+        document.getElementById('status').textContent = "❌ Please provide a signature.";
+        return;
+      }
+      document.getElementById('status').textContent = "⏳ Saving...";
+      const dataURL = signaturePad.toDataURL("image/png");
+      // Send to n8n webhook (replace with your actual URL)
+      try {
+        const res = await fetch('https://n8n.srv898271.hstgr.cloud/webhook/80082779-090b-4999-a223-4aa1911c24ee', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signature: dataURL })
+        });
+        const result = await res.json();
+        if (result.success) {
+          document.getElementById('status').textContent = "✅ Signature saved!";
+        } else {
+          document.getElementById('status').textContent = "❌ Error saving signature.";
+        }
+      } catch (e) {
+        document.getElementById('status').textContent = "❌ Network error.";
+      }
+    };
+  </script>
+</body>
+</html>
