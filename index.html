@@ -31,6 +31,9 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
   <script>
+    // Configure your n8n webhook URL here (leave empty to disable remote upload)
+    const N8N_SIGNATURE_WEBHOOK_URL = 'https://n8n.srv898271.hstgr.cloud/webhook/8635994c-e9ab-483e-a368-b8467ce1d3db';
+
     const canvas = document.getElementById('signature-pad');
     const signaturePad = new SignaturePad(canvas, { backgroundColor: '#f3f4f6' });
 
@@ -72,13 +75,45 @@
       loadSavedSignature();
       document.getElementById('status').textContent = "✅ Signature saved and downloaded!";
 
-      // Also trigger download
+      // Also trigger download (do this immediately so user gets the file even if network is slow)
       const link = document.createElement('a');
       link.href = dataURL;
       link.download = 'signature.png';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      // If webhook configured, send the signature as binary file (multipart/form-data)
+      if (N8N_SIGNATURE_WEBHOOK_URL) {
+        try {
+          // Convert dataURL to Blob
+          function dataURLtoBlob(dataurl) {
+            const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1], bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            for (let i = 0; i < n; i++) u8arr[i] = bstr.charCodeAt(i);
+            return new Blob([u8arr], { type: mime });
+          }
+          const blob = dataURLtoBlob(dataURL);
+          const formData = new FormData();
+          formData.append('file', blob, 'signature.png');
+          fetch(N8N_SIGNATURE_WEBHOOK_URL, {
+            method: 'POST',
+            body: formData
+          }).then(async res => {
+            if (res.ok) {
+              const json = await res.json().catch(() => ({}));
+              document.getElementById('status').textContent = json.success ? '✅ Signature uploaded to server.' : '✅ Saved locally; server responded.';
+            } else {
+              document.getElementById('status').textContent = '✅ Saved locally; upload failed (server error).';
+            }
+          }).catch(err => {
+            console.warn('Upload error', err);
+            document.getElementById('status').textContent = '✅ Saved locally; upload failed (network).';
+          });
+        } catch (e) {
+          console.warn('Upload exception', e);
+          document.getElementById('status').textContent = '✅ Saved locally; upload failed.';
+        }
+      }
     };
   </script>
 </body>
